@@ -1,0 +1,5 @@
+name: riverpod_monitor
+issueTracker: 'https://github.com/lllttt06/flutter_devtools_extension_sample/issues'
+version: 0.0.1
+materialIconCodePoint: '0xe3fb'
+requiresConnection: true

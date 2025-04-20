@@ -1,0 +1,17 @@
+{
+  "configVersion": 2,
+  "packages": [
+    {
+      "name": "riverpod_devtools_extension",
+      "rootUri": "../",
+      "packageUri": "lib/",
+      "languageVersion": "3.7"
+    }
+  ],
+  "generated": "2025-04-13T09:51:53.187390Z",
+  "generator": "pub",
+  "generatorVersion": "3.7.2",
+  "flutterRoot": "file:///Users/koichi/Developer/flutter",
+  "flutterVersion": "3.29.2",
+  "pubCache": "file:///Users/koichi/.pub-cache"
+}

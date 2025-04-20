@@ -1,0 +1,20 @@
+{
+    "configurations": [
+        {
+            "name": "App",
+            "request": "launch",
+            "type": "dart",
+            "program": "packages/app/lib/main.dart",
+            "args": []
+        },
+        {
+            "name": "DevTools",
+            "request": "launch",
+            "type": "dart",
+            "program": "packages/devtools_ext/lib/main.dart",
+            "args": [
+                "use_simulated_environment=true"
+            ]
+        },
+    ]
+}
