@@ -1,5 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
-import 'package:app/models/provider_info.dart';
+import 'package:app/extension/models/provider_info.dart';
 
 part 'provider_state.freezed.dart';
 part 'provider_state.g.dart';

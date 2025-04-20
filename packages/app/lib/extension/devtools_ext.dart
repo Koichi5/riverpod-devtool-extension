@@ -3,7 +3,7 @@ import 'dart:developer';
 import 'dart:io';
 import 'dart:async';
 
-import 'package:app/providers/provider_state_observer.dart';
+import 'package:app/extension/providers/provider_state_observer.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

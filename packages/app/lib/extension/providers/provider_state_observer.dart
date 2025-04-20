@@ -1,5 +1,5 @@
-import 'package:app/models/event_type.dart';
-import 'package:app/models/provider_state.dart';
+import 'package:app/extension/models/event_type.dart';
+import 'package:app/extension/models/provider_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../models/provider_info.dart';

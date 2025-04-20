@@ -25,68 +25,341 @@ https://github.com/rrousselGit/riverpod/issues/1039
 
 https://youtu.be/WkmdCPxoYPk
 
-DevTool の実装に際しては以下の記事を参考にさせていただきました🙇‍♂️
+DevTool の実装に際しては以下の記事を参考にさせていただきました 🙇‍♂️
 
 https://zenn.dev/koki0728/articles/6e3114c2d6614b
 
+## 全体の把握
+実装に取り掛かる前に以下の図でこの DevTool の全容をざっと把握しておきたいと思います。
+![](https://storage.googleapis.com/zenn-user-upload/ddd4261eab52-20250420.png)
+
+上記の図では以下のようなデータの流れになっています。
+1. DevTool 側から Provider のデータ要求
+2. App 側の ProviderObserver で各 Provider の監視
+3. Provider の監視結果を DevTool 側へ渡す
+4. DevTool 側で監視結果を表示
+5. 1 ~ 4 を繰り返し
+
 ## 実装の方針
+今回の DevTool の実装は、大きく分けて 2 つの部分から構成されています。
+1. アプリケーション側（以下 app）の実装
+2. DevTool 拡張機能（以下 devtool）の実装
 
-この DevTool の実装は、大きく分けて 2 つの部分から構成されています
-
-1. アプリケーション側（app）の実装
-2. DevTool 拡張機能（devtools_ext）の実装
-
-### 1. アプリケーション側の実装
-
-アプリケーション側では、Riverpod の Provider の状態変化を監視し、その情報を DevTool に送信する仕組みを実装します。
-主な実装内容は以下の通りです：
-
-#### 1.1 Provider の監視
-
-- `ProviderObserver` を継承した `_AppProviderObserver` クラスを実装
-- Provider の追加（`didAddProvider`）、更新（`didUpdateProvider`）、破棄（`didDisposeProvider`）、エラー（`providerDidFail`）の各イベントを監視
-
-#### 1.2 状態管理
-
-- `ProviderInfo` クラス：Provider の情報（型、名前、タイムスタンプ、イベントタイプ）を保持
-- `ProviderState` クラス：現在アクティブな Provider のリストと履歴を管理
-- `ProviderStateObserver` クラス：Provider の状態変更を管理し、DevTool に送信するデータを準備
-
-#### 1.3 DevTool との連携
-
-- `DevToolsExtContainer` ウィジェット：DevTool との通信を確立
-- Service Extension の登録：DevTool からのリクエストを処理するためのインターフェースを提供
-  - `fetchProviders`：現在の Provider 情報を取得
-  - `subscribeProviderEvents`：Provider イベントの購読を開始
-  - `unsubscribeProviderEvents`：Provider イベントの購読を終了
-
-### 2. DevTool 拡張機能の実装
-
-DevTool 拡張機能側では、アプリケーションから送信された Provider の情報を表示し、開発者が Provider の状態を監視できるインターフェースを提供します：
-
-#### 2.1 アプリケーションとの通信
-
-- `AppConnection` クラス：アプリケーションとの通信を管理
-- 定期的なポーリングによる Provider 情報の取得
-- Provider イベントのリアルタイム購読機能
-
-#### 2.2 UI の実装
-
-- Provider の一覧表示
-- Provider の状態変更履歴のタイムライン表示
-- 検索機能による Provider のフィルタリング
-
-### 3. データの流れ
-
-1. アプリケーション側で Provider の状態変更が発生
-2. `_AppProviderObserver` がイベントを検知
-3. `ProviderStateObserver` が状態を更新
-4. DevTool 拡張機能が Service Extension を通じて情報を取得
-5. DevTool の UI が更新され、開発者に情報を表示
-
-この実装により、開発者は Provider の状態変更をリアルタイムで監視し、アプリケーションの動作をより深く理解することができます。
+今回はまず app 側の実装を行い、次に devtool 側の実装を行います。
 
 ## app 側の実装
+まずは app の実装を行います。
+app の実装は以下の手順で進めていきます。
+1. `app` のプロジェクト作成
+2. `config.yaml` ファイル作成
+3. `devtools_options.yaml` の作成
+4. `models` の作成
+5. `providers` の作成
+6. `DevToolsExtContainer` の作成
+7. サンプルの作成
+
+### 1. `app` のプロジェクト作成
+まずは `app` プロジェクトを作成します。
+既存のプロジェクトに DevTool を追加する場合はこのステップは不要です。
+
+今回は `riverpod_devtools_extension` というルートディレクトリの中に `packages` というディレクトリを作成し、その中に `app` プロジェクトを作成しています。
+ディレクトリ構造は以下のようになっています。
+```md
+riverpod_devtools_extension/
+└── packages/
+    └── app/            # アプリケーション本体
+        └── lib/
+            └── main.dart
+```
+
+### 2. `config.yaml` ファイル作成
+次に app の中に `config.yaml` ファイルを作成していきます。
+`config.yaml` ファイルでは DevTool を app 側で認識して実行できるようにするための設定を行います。
+
+`packages/app/extension/devtools` ディレクトリに `config.yaml` ファイルを作成します。
+コードは以下の通りです。
+```yaml: packages/app/extension/devtools/config.yaml
+name: riverpod_monitor
+issueTracker: 'https://github.com/Koichi5/riverpod-devtool-extension/issues'
+version: 0.0.1
+materialIconCodePoint: '0xe3fb'
+requiresConnection: true
+```
+
+それぞれのパラメータは以下のような指定ができます。
+- `name` : DevTool の名前。タブで表示される名前
+- `issueTracker` : DevTool 右上の「Report an issue」で開くURL
+- `version`: DevTool のバージョン
+- `materialIconCodePoint` : DevTool のタブで表示されるアイコン
+- `requiresConnection` : Flutter アプリとの連絡が必要かどうか
+
+`name` に関しては、自分の手元では UpperCamelCase で指定することができませんでした。
+`materialIconCodePoint` に関しては、Flutter のレポジトリの [material/icons.dart](https://github.com/flutter/flutter/blob/master/packages/flutter/lib/src/material/icons.dart) から選択します
+`requiresConnection` は、今回はアプリ側の Riverpod の状態を取得したいので、 `true` にします。
+
+現在のディレクトリ構造は以下のようになっています。
+```
+riverpod_devtools_extension/
+└── packages/
+    └── app/                        # アプリケーション本体
+        ├── lib/
+        │   └── main.dart
+        └── extension/
+            └── devtools/
+                 └── config.yaml    # New
+```
+
+これで `config.yaml` の作成は完了です。
+
+### 3. `devtools_options.yaml` の作成
+次に `app` ディレクトリのルートに `devtools_options.yaml` の作成を行います。
+`devtools_options.yaml` を設定しなければ、以下の画像のように DevTool の読み込みができなくなるため、設定が必要です。
+![](https://storage.googleapis.com/zenn-user-upload/6dc26257e18f-20250420.png)
+
+コードは以下の通りです。
+```yaml: packages/app/devtools_options.yaml
+description: This file stores settings for Dart & Flutter DevTools.
+documentation: https://docs.flutter.dev/tools/devtools/extensions#configure-extension-enablement-states
+extensions:
+  - riverpod_monitor: true
+```
+
+`extensions` に DevTool の名前を指定して、 `true` を渡すことでツールを有効化することができます。
+:::message
+この `extensions` パラメータで指定する DevTool の名前は先ほど追加した `config.yaml` の `name` パラメータと一致している必要があります。
+:::
+
+ディレクトリ構造は以下のようになっています。
+```
+riverpod_devtools_extension/
+└── packages/
+    └── app/                        # アプリケーション本体
+        ├── lib/
+        │   └── main.dart
+        ├── extension/
+        │   └── devtools/
+        │        └── config.yaml
+        └── devtools_options.yaml   # New
+```
+
+### 4. `models` の作成
+次に、 app 側で必要な `model` の定義をしていきます。
+`models` では以下の3つを定義していきます。
+- `EventType` : Provider のイベントの種類（追加、変更、破棄）
+- `ProviderInfo` : Provider の情報（名前、タイプ等）
+- `ProviderState` : Provider の状態をまとめたもの
+
+コードはそれぞれ以下の通りです。
+なお、今回の実装では freezed を用いてクラスの実装をしているため、 build runner を実行する必要があります。
+```dart: packages/app/lib/models/event_type.dart
+enum EventType {
+  added,
+  updated,
+  disposed,
+}
+```
+
+```dart: packages/app/lib/models/provider_info.dart
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'provider_info.freezed.dart';
+part 'provider_info.g.dart';
+
+@freezed
+class ProviderInfo with _$ProviderInfo {
+  const factory ProviderInfo({
+    required String type,
+    String? name,
+    required DateTime timestamp,
+    required String eventType,
+  }) = _ProviderInfo;
+
+  factory ProviderInfo.fromJson(Map<String, dynamic> json) =>
+      _$ProviderInfoFromJson(json);
+}
+```
+
+```dart: packages/app/lib/models/provider_state.dart
+import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:app/models/provider_info.dart';
+
+part 'provider_state.freezed.dart';
+part 'provider_state.g.dart';
+
+@freezed
+class ProviderState with _$ProviderState {
+  const factory ProviderState({
+    @Default([]) List<ProviderInfo> providers,
+    @Default([]) List<ProviderInfo> history,
+  }) = _ProviderState;
+
+  factory ProviderState.fromJson(Map<String, dynamic> json) =>
+      _$ProviderStateFromJson(json);
+}
+```
+
+今回定義した `ProviderInfo` のプロパティ以外でも取得できる Provider のデータはあるかと思うので、必要に応じて追加していただければと思います。
+
+ディレクトリ構造は以下のようになっています。
+```
+riverpod_devtools_extension/
+└── packages/
+    └── app/                             # アプリケーション本体
+        ├── lib/
+        │   ├── models/
+        │   │   ├── event_type.dart      # New
+        │   │   ├── provider_info.dart   # New
+        │   │   └── provider_state.dart  # New
+        │   └── main.dart
+        ├── extension/
+        │   └── devtools/
+        │        └── config.yaml
+        └── devtools_options.yaml
+```
+
+### 5. `providers` の作成
+次に `providers` の作成を行います。
+今回は、app 側のそれぞれの Provider の変化を監視、保持するための Provider を作成します。（ややこしいですが...）
+
+コードは以下の通りです。
+```dart: packages/app/lib/providers/provider_state_observer.dart
+import 'package:app/models/event_type.dart';
+import 'package:app/models/provider_state.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+import '../models/provider_info.dart';
+
+part 'provider_state_observer.g.dart';
+
+@Riverpod(keepAlive: true)
+class ProviderStateObserver extends _$ProviderStateObserver {
+  @override
+  ProviderState build() {
+    return const ProviderState(providers: [], history: []);
+  }
+
+  void addProvider(ProviderBase<Object?> provider) {
+    final existingProviderIndex = state.providers.indexWhere(
+      (info) =>
+          info.name == provider.name &&
+          info.type == provider.runtimeType.toString(),
+    );
+
+    final info = ProviderInfo(
+      type: provider.runtimeType.toString(),
+      name: provider.name,
+      timestamp: DateTime.now(),
+      eventType: EventType.added.name,
+    );
+
+    final updatedHistory = [...state.history, info];
+
+    if (existingProviderIndex == -1) {
+      state = state.copyWith(
+        providers: [...state.providers, info],
+        history: updatedHistory,
+      );
+    } else {
+      state = state.copyWith(history: updatedHistory);
+    }
+  }
+
+  void updateProvider(ProviderBase<Object?> provider) {
+    final info = ProviderInfo(
+      type: provider.runtimeType.toString(),
+      name: provider.name,
+      timestamp: DateTime.now(),
+      eventType: EventType.updated.name,
+    );
+
+    final updatedProviders =
+        state.providers
+            .where(
+              (info) =>
+                  info.name != provider.name ||
+                  info.type != provider.runtimeType.toString(),
+            )
+            .toList();
+
+    updatedProviders.add(info);
+
+    state = state.copyWith(
+      providers: updatedProviders,
+      history: [...state.history, info],
+    );
+  }
+
+  void disposeProvider(ProviderBase<Object?> provider) {
+    final info = ProviderInfo(
+      type: provider.runtimeType.toString(),
+      name: provider.name,
+      timestamp: DateTime.now(),
+      eventType: EventType.disposed.name,
+    );
+
+    state = state.copyWith(
+      providers: state.providers
+          .where((info) => info.name != provider.name)
+          .toList(),
+      history: [...state.history, info],
+    );
+  }
+}
+```
+
+それぞれ詳しくみていきます。
+
+以下の部分では、`keepAlive: true` にすることで autoDispose されないようにします。
+また、`build` メソッドで `ProviderState` を保持するようにしています。これで、`state` を更新することで `ProviderState` が更新され、それぞれの Provider の状態を保持することができます。
+```dart
+@Riverpod(keepAlive: true)
+class ProviderStateObserver extends _$ProviderStateObserver {
+  @override
+  ProviderState build() {
+    return const ProviderState(providers: [], history: []);
+  }
+```
+
+以下では、Provider が追加された場合の処理を実装しています。
+複数回実行される可能性があるため、`existingProviderIndex` ですでに追加されているProvider かどうかを判定して、追加されていない場合のみ `providers` と `history` を更新するようにしています。
+```dart
+void addProvider(ProviderBase<Object?> provider) {
+  final existingProviderIndex = state.providers.indexWhere(
+    (info) =>
+        info.name == provider.name &&
+        info.type == provider.runtimeType.toString(),
+  );
+
+  final info = ProviderInfo(
+    type: provider.runtimeType.toString(),
+    name: provider.name,
+    timestamp: DateTime.now(),
+    eventType: EventType.added.name,
+  );
+
+  final updatedHistory = [...state.history, info];
+
+  if (existingProviderIndex == -1) {
+    state = state.copyWith(
+      providers: [...state.providers, info],
+      history: updatedHistory,
+    );
+  } else {
+    state = state.copyWith(history: updatedHistory);
+  }
+}
+```
+
+上記の `addProvider` と同様で、 `updateProvider` は　Provider が更新された時、 `disposeProvider` は Provider が破棄された時の処理を記述しています。
+
+これで `ProviderStateObserver` の `state` では以下の二つの状態を持つことができるようになります。
+- 現時点で有効な Provider
+- それぞれの Provider の追加、変更、破棄の履歴
+
+### 6. `DevToolsExtContainer` の作成
+
+### 7. サンプルの作成
+
 
 ## devtool 側の実装
 
