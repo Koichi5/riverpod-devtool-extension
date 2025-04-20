@@ -53,13 +53,13 @@ class _DevToolsExtContainerState extends ConsumerState<DevToolsExtContainer> {
 
         final providers =
             state.providers
-                .where((p) => p.name != null && p.name!.isNotEmpty)
+                .where((info) => info.name != null && info.name!.isNotEmpty)
                 .map(
-                  (p) => {
-                    'type': p.type.toString(),
-                    'name': p.name ?? 'Unnamed Provider',
-                    'timestamp': p.timestamp.toIso8601String(),
-                    'eventType': p.eventType,
+                  (info) => {
+                    'type': info.type.toString(),
+                    'name': info.name ?? 'Unnamed Provider',
+                    'timestamp': info.timestamp.toIso8601String(),
+                    'eventType': info.eventType,
                   },
                 )
                 .toList();
@@ -70,11 +70,11 @@ class _DevToolsExtContainerState extends ConsumerState<DevToolsExtContainer> {
         final history =
             sortedHistory
                 .map(
-                  (p) => {
-                    'type': p.type.toString(),
-                    'name': p.name ?? 'Unnamed Provider',
-                    'timestamp': p.timestamp.toIso8601String(),
-                    'eventType': p.eventType,
+                  (info) => {
+                    'type': info.type.toString(),
+                    'name': info.name ?? 'Unnamed Provider',
+                    'timestamp': info.timestamp.toIso8601String(),
+                    'eventType': info.eventType,
                   },
                 )
                 .take(100)

@@ -16,27 +16,13 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Riverpod DevTool',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
       home: const DevToolsExtContainer(child: SamplePage()),
     );
   }
-}
-
-class HookStateInfo {
-  final String hookType;
-  final Object? value;
-  final int hookIndex;
-  final String variableName;
-
-  HookStateInfo({
-    required this.hookType,
-    required this.value,
-    required this.hookIndex,
-    required this.variableName,
-  });
 }
 
 class _AppProviderObserver extends ProviderObserver {

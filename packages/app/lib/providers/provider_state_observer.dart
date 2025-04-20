@@ -15,8 +15,9 @@ class ProviderStateObserver extends _$ProviderStateObserver {
 
   void addProvider(ProviderBase<Object?> provider) {
     final existingProviderIndex = state.providers.indexWhere(
-      (p) =>
-          p.name == provider.name && p.type == provider.runtimeType.toString(),
+      (info) =>
+          info.name == provider.name &&
+          info.type == provider.runtimeType.toString(),
     );
 
     final info = ProviderInfo(
@@ -49,9 +50,9 @@ class ProviderStateObserver extends _$ProviderStateObserver {
     final updatedProviders =
         state.providers
             .where(
-              (p) =>
-                  p.name != provider.name ||
-                  p.type != provider.runtimeType.toString(),
+              (info) =>
+                  info.name != provider.name ||
+                  info.type != provider.runtimeType.toString(),
             )
             .toList();
 
@@ -72,7 +73,9 @@ class ProviderStateObserver extends _$ProviderStateObserver {
     );
 
     state = state.copyWith(
-      providers: state.providers.where((p) => p.name != provider.name).toList(),
+      providers: state.providers
+          .where((info) => info.name != provider.name)
+          .toList(),
       history: [...state.history, info],
     );
   }
